@@ -81,6 +81,7 @@ void cmdline_parser_print_help (void) {
 // " -U, --uservar=STRING    Environment variable that holds username\n"
 // " -S, --passvar=STRING    Environment variable that holds password\n"
 " -N, --ntlm                 Use NTLM based authentication\n"
+" -D, --digest               Use HTTP Digest authentication\n"
 " -t, --domain=STRING        NTLM domain (default: autodetect)\n"
 " -H, --header=STRING        Add additional HTTP headers to send to proxy\n"
 " -o STRING                  send custom Host Header\n"
@@ -165,7 +166,8 @@ int cmdline_parser( int argc, char * const *argv, struct gengetopt_args_info *ar
 	args_info->remproxyauth_arg = NULL; \
 	args_info->header_arg[0] = '\0'; \
 	args_info->verbose_flag = 0; \
-	args_info->ntlm_flag = 0; \
+	args_info->auth_ntlm_flag = 0; \
+    args_info->auth_digest_flag = 0; \
 	args_info->inetd_flag = 0; \
 	args_info->quiet_flag = 0; \
 	args_info->standalone_arg = 0; \
@@ -216,9 +218,10 @@ int cmdline_parser( int argc, char * const *argv, struct gengetopt_args_info *ar
 			{ "header",			1, NULL, 'H' },
 			{ "verbose",		0, NULL, 'v' },
 			{ "ntlm",			0, NULL, 'N' },
-			{ "inetd",			0, NULL, 'i' },
+            { "digest",			0, NULL, 'D' },
+            { "inetd",			0, NULL, 'i' },
 			{ "standalone", 	1, NULL, 'a' },
-			{ "quiet",			0, NULL, 'q' },
+            { "quiet",			0, NULL, 'q' },
 			{ "encrypt",		0, NULL, 'e' },
 			{ "encrypt-proxy",	0, NULL, 'E' },
 			{ "encrypt-remproxy",0,NULL, 'X' },
@@ -230,7 +233,7 @@ int cmdline_parser( int argc, char * const *argv, struct gengetopt_args_info *ar
 			{ NULL,				0, NULL, 0 }
 		};
 
-		c = getopt_long (argc, argv, "hVia:u:s:t:F:p:P:r:R:d:H:x:nvNeEXWBqLo:TzC:", long_options, &option_index);
+        c = getopt_long (argc, argv, "hVia:u:s:t:F:p:P:r:R:d:H:x:nvNDeEXWBqLo:TzC:", long_options, &option_index);
 #else
 		c = getopt( argc, argv, "hVia:u:s:t:F:p:P:r:R:d:H:x:nvNeEXWBqLo:TzC:" );
 #endif
@@ -455,8 +458,12 @@ int cmdline_parser( int argc, char * const *argv, struct gengetopt_args_info *ar
 				break;
 
 			case 'N':	/* Turn on NTLM.  */
-				args_info->ntlm_flag = !(args_info->ntlm_flag);
+				args_info->auth_ntlm_flag = !(args_info->auth_ntlm_flag);
 				break;
+
+            case 'D':	/* Turn on HTTP Digest.  */
+                args_info->auth_digest_flag = !(args_info->auth_digest_flag);
+                break;
 
 			case 'q':	/* Suppress messages -- Quiet mode */
 				args_info->quiet_flag = !(args_info->quiet_flag);

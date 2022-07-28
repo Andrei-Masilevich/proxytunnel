@@ -37,5 +37,6 @@ char buf[SIZE];         /* Data transfer buffer */
 
 char ntlm_type1_buf[160];
 char ntlm_type3_buf[4096];
+char digest_auth_http_buf[1024];
 
 // vim:noexpandtab:ts=4

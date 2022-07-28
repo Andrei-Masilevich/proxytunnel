@@ -351,7 +351,7 @@ int main( int argc, char *argv[] ) {
 	}
 
 	if( args_info.user_given && args_info.pass_given ) {
-		if (args_info.ntlm_flag) {
+		if (args_info.auth_ntlm_flag) {
 			build_type1();
 			if ( args_info.verbose_flag )
 				message("Build Type 1 NTLM Message : %s\n", ntlm_type1_buf);

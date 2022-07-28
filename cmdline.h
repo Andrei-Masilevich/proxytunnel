@@ -40,8 +40,9 @@ struct gengetopt_args_info {
 	char *remproxy_arg;		/* Remote proxy to tunnel to. */
 	char *remproxyauth_arg;	/* Remote proxy auth. */
 	int verbose_flag;		/* Turn on verbosity (default=off). */
-	int ntlm_flag;			/* Turn on ntlm  (default=off). */
-	int inetd_flag;			/* Turn on inetd (default=off). */
+    int auth_ntlm_flag;		/* Turn on NTLM authentication  (default=off). */
+    int auth_digest_flag;   /* Turn on HTTP Digest authentication  (default=off). */
+    int inetd_flag;			/* Turn on inetd (default=off). */
 	int quiet_flag;			/* Turn on quiet mode (default=off). */
 	int standalone_arg;		/* Turn on stdalone (-a) on port */
 	int encrypt_flag;		/* Turn on SSL encryption (default=off). */
