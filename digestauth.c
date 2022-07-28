@@ -16,6 +16,85 @@ static const size_t DIGEST_SZ_LIM = 1024;
 
 // https://datatracker.ietf.org/doc/html/rfc7616
 
+static int scan_for_tokens(DIGEST_AUTH_CTX *pctx, const char *pchunk, char* buff)
+{
+    if (!pctx->realm)
+    {
+        if (1 == sscanf(pchunk, "realm=\"%[^\"]", buff))
+        {
+            pctx->realm = strdup(buff);
+
+            return 1;
+        }
+    }
+
+    if (!pctx->qop)
+    {
+        if (1 == sscanf(pchunk, "qop=\"%[^\"]", buff))
+        {
+            pctx->qop = strdup(buff);
+
+            return 1;
+        }
+    }
+
+    if (!pctx->nonce)
+    {
+        if (1 == sscanf(pchunk, "nonce=\"%[^\"]", buff))
+        {
+            pctx->nonce = strdup(buff);
+
+            return 1;
+        }
+    }
+
+    if (!pctx->opaque)
+    {
+        if (1 == sscanf(pchunk, "opaque=\"%[^\"]", buff))
+        {
+            pctx->opaque = strdup(buff);
+
+            return 1;
+        }
+    }
+
+    if (-1 == pctx->stale)
+    {
+        if (1 == sscanf(pchunk, "stale=%s", buff))
+        {
+            if (!strncmp(buff, "true", 4))
+                pctx->stale = 1;
+            else if (!strncmp(buff, "false", 5))
+                pctx->stale = 0;
+
+            // Support only handshake state
+            if (pctx->stale != 0)
+            {
+                message("parse_digest: Invalid digest behavior ('stale' has invalid value for handshake) from server\n");
+
+                return 0;
+            }
+
+            return 1;
+        }
+    }
+
+    if (1 == sscanf(pchunk, "algorithm=%s", buff))
+    {
+        const char *algorithm = buff;
+
+        // Support only default MD5 hash
+        if (strncmp(algorithm, "MD5", 3))
+        {
+            message("parse_digest: Unsupported algorithm '%s'from server\n", algorithm);
+
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 DIGEST_AUTH_CTX *create_digest_auth(const char* http_uri, unsigned char *server_digest)
 {
     // Sanitize input
@@ -43,84 +122,52 @@ DIGEST_AUTH_CTX *create_digest_auth(const char* http_uri, unsigned char *server_
     pctx->http_uri = strdup(http_uri);
     pctx->realm = NULL;
     pctx->nonce = NULL;
+    pctx->qop = NULL;
+    pctx->stale = -1;
     pctx->opaque = NULL;
     pctx->cnonce = NULL;
     pctx->secret = NULL;
     pctx->identity = NULL;
     pctx->response = NULL;
 
-    if (1 == sscanf(pserver_digest, "realm=\"%s\"", pvar_buf))
+    const char*const VARS_DELIMS=" ,";
+
+    char *pchunk = strtok(pserver_digest, VARS_DELIMS);
+    while (pchunk != NULL)
     {
-        pctx->realm = strdup(pvar_buf);
-    }else
+        if (1 != scan_for_tokens(pctx, pchunk, pvar_buf))
+        {
+            cleanup_digest_auth(&pctx);
+            return NULL;
+        }
+
+        pchunk = strtok (NULL, VARS_DELIMS);
+    }
+
+    if (!pctx->realm)
     {
         message("parse_digest: Invalid digest string (failed 'realm') from server\n");
-
         cleanup_digest_auth(&pctx);
         return NULL;
     }
 
-    // Ignored but must be by rfc7616
-    if (1 != sscanf(pserver_digest, "qop=\"%s\"", pvar_buf))
+    if (!pctx->qop)
     {
         message("parse_digest: Invalid digest string (failed 'qop') from server\n");
-
         cleanup_digest_auth(&pctx);
         return NULL;
     }
 
-    if (1 == sscanf(pserver_digest, "nonce=\"%s\"", pvar_buf))
-    {
-        pctx->nonce = strdup(pvar_buf);
-    }else
+    if (!pctx->nonce)
     {
         message("parse_digest: Invalid digest string (failed 'nonce') from server\n");
-
         cleanup_digest_auth(&pctx);
         return NULL;
     }
 
-    char *opaque = NULL;
-    if (1 == sscanf(pserver_digest, "opaque=\"%s\"", pvar_buf))
-    {
-        pctx->opaque = strdup(pvar_buf);
-    }
-
-    int stale = -1;
-    if (1 == sscanf(pserver_digest, "stale=%5s", pvar_buf))
-    {
-        if (!strncmp(pvar_buf, "true", 4))
-            stale = 1;
-        else if (!strncmp(pvar_buf, "false", 5))
-            stale = 0;
-    }else
+    if (-1 == pctx->stale)
     {
         message("parse_digest: Invalid digest string (failed 'stale') from server\n");
-
-        cleanup_digest_auth(&pctx);
-        return NULL;
-    }
-
-    // Support only handshake state
-    if (stale != 0)
-    {
-        message("parse_digest: Invalid digest behavior ('stale' has invalid value for handshake) from server\n");
-
-        cleanup_digest_auth(&pctx);
-        return NULL;
-    }
-
-    char *algorithm = NULL;
-    if (1 == sscanf(pserver_digest, "algorithm=%3s", pvar_buf))
-    {
-        algorithm = strdup(pvar_buf);
-    }
-
-    // Support only default MD5 hash
-    if (algorithm && strncmp(algorithm, "MD5", 3))
-    {
-        message("parse_digest: Unsupported algorithm '%s'from server\n", algorithm);
-
         cleanup_digest_auth(&pctx);
         return NULL;
     }
@@ -216,6 +263,7 @@ char* build_digest_response(DIGEST_AUTH_CTX *pctx, const char* username, const c
     }
 
     char *presponse_buf = alloca(DIGEST_SZ_LIM);
+    memset(presponse_buf, 0, DIGEST_SZ_LIM);
 
     const char *const DELIM = ":";
     const char *qop = "auth";
@@ -248,6 +296,10 @@ void cleanup_digest_auth(DIGEST_AUTH_CTX **ppctx)
         if (pctx->realm)
         {
             free(pctx->realm);
+        }
+        if (pctx->qop)
+        {
+            free(pctx->qop);
         }
         if (pctx->nonce)
         {

@@ -34,6 +34,26 @@
 #include "digestauth.h"
 
 static DIGEST_AUTH_CTX *pdigest_challenge_ctx = NULL;
+size_t global_proxy_number = 0;
+
+const char* get_uri()
+{
+    size_t proxy_number = global_proxy_number;
+
+    if (args_info.host_arg)
+        return args_info.host_arg;
+
+    if (args_info.remproxy_given )
+    {
+        if (1 >= proxy_number)
+        {
+            return args_info.remproxy_arg;
+        }
+    }
+
+    return args_info.dest_arg;
+}
+
 /*
  * Analyze the proxy's HTTP response. This must be a HTTP/1.? 200 OK type
  * header
@@ -75,7 +95,7 @@ void analyze_HTTP(PTSTREAM *pts) {
                 readline(pts);
                 if (strncmp( buf, "Proxy-Authenticate: Digest ", 27 ) == 0 &&
                         !pdigest_challenge_ctx) {
-                    pdigest_challenge_ctx = create_digest_auth(args_info.host_arg, (unsigned char *)&buf[27]);
+                    pdigest_challenge_ctx = create_digest_auth(get_uri(), (unsigned char *)&buf[27]);
                     if (!pdigest_challenge_ctx)
                     {
                         message( "FAILED Digest Authentication\n" );
@@ -98,10 +118,17 @@ void analyze_HTTP(PTSTREAM *pts) {
         }
 
         if (ntlm_challenge == 1 || pdigest_challenge_ctx) {
+
+            // Will be resent for current proxy number
+            --global_proxy_number;
+
             proxy_protocol(pts);
             return;
         }
         exit( 1 );
+    } else {
+        if( ! args_info.quiet_flag )
+            message( "Connected to %s\n", get_uri() );
     }
 }
 
@@ -123,15 +150,18 @@ void print_line_prefix(char *buf, char *prefix) {
  * last line of the response has been read. The tunnel is then open.
  */
 void proxy_protocol(PTSTREAM *pts) {
+
+    ++global_proxy_number;
+
     /* Create the proxy CONNECT command into buf */
     if (args_info.remproxy_given ) {
         if( args_info.verbose_flag )
             message( "\nTunneling to %s (remote proxy)\n", args_info.remproxy_arg );
-        sprintf( buf, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n", args_info.remproxy_arg, args_info.host_arg ? args_info.host_arg : args_info.remproxy_arg );
+        sprintf( buf, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n", args_info.remproxy_arg, get_uri() );
     } else {
         if( args_info.verbose_flag )
             message( "\nTunneling to %s (destination)\n", args_info.dest_arg );
-        sprintf( buf, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n", args_info.dest_arg, args_info.host_arg ? args_info.host_arg : args_info.proxyhost_arg );
+        sprintf( buf, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n", args_info.dest_arg, get_uri() );
     }
 
     if ( args_info.user_given && args_info.pass_given ) {
@@ -162,7 +192,6 @@ void proxy_protocol(PTSTREAM *pts) {
 
     strzcat( buf, "\r\n" );
 
-
     /* Print the CONNECT instruction before sending to proxy */
     if( args_info.verbose_flag ) {
         message( "Communication with local proxy:\n");
@@ -175,9 +204,6 @@ void proxy_protocol(PTSTREAM *pts) {
         exit( 1 );
     }
 
-//	if( args_info.verbose_flag )
-//		message( "Data received from local proxy:\n");
-
     if( args_info.wa_bug_29744_flag && !args_info.encryptremproxy_flag && pts->ssl ) {
         message( "Switching to non-SSL communication (local proxy)\n");
         pts->ssl = 0;
@@ -187,6 +213,9 @@ void proxy_protocol(PTSTREAM *pts) {
     analyze_HTTP(pts);
 
     if (args_info.remproxy_given ) {
+
+        ++global_proxy_number;
+
         /* Clean buffer for next analysis */
         while ( strcmp( buf, "\r\n" ) != 0 )
             readline(pts);
@@ -197,7 +226,7 @@ void proxy_protocol(PTSTREAM *pts) {
 
         if( args_info.verbose_flag )
             message( "\nTunneling to %s (destination)\n", args_info.dest_arg );
-        sprintf( buf, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n", args_info.dest_arg, args_info.host_arg ? args_info.host_arg : args_info.dest_arg);
+        sprintf( buf, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n", args_info.dest_arg, get_uri());
 
         if ( args_info.remuser_given && args_info.rempass_given )
             strzcat( buf, "Proxy-Authorization: Basic %s\r\n", basicauth(args_info.remuser_arg, args_info.rempass_arg ));
@@ -221,9 +250,6 @@ void proxy_protocol(PTSTREAM *pts) {
             my_perror( "Socket write error" );
             exit( 1 );
         }
-
-//		if( args_info.verbose_flag )
-//			message( "Received from remote proxy:\n");
 
         if( args_info.wa_bug_29744_flag && pts->ssl ) {
             message( "Switching to non-SSL communication (remote proxy)\n");
