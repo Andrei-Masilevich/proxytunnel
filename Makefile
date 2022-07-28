@@ -68,6 +68,7 @@ OBJ = proxytunnel.o	\
 	cmdline.o	\
 	globals.o	\
 	ntlm.o		\
+	digestauth.o		\
 	ptstream.o
 
 UNAME = $(shell uname)

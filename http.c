@@ -31,6 +31,7 @@
 #include "io.h"
 #include "basicauth.h"
 #include "ntlm.h"
+#include "digestauth.h"
 
 /*
  * Analyze the proxy's HTTP response. This must be a HTTP/1.? 200 OK type
@@ -65,7 +66,17 @@ void analyze_HTTP(PTSTREAM *pts) {
 		if( ! args_info.quiet_flag )
 			message( "%s", p );
 
-		if (!ntlm_challenge && strcmp( p, "407") != 0) {
+		if (!strcmp( p, "407" ))
+		{
+			do {
+				readline(pts);
+				if (strncmp( buf, "Proxy-Authenticate: Digest ", 27 ) == 0) {
+					if (parse_digest((unsigned char *)&buf[27]) < 0)
+						exit(1);
+				}
+			} while ( strcmp( buf, "\r\n" ) != 0 );			
+		} 
+		else if (!ntlm_challenge && strcmp( p, "407") != 0) {
 			do {
 				readline(pts);
 				if (strncmp( buf, "Proxy-Authenticate: NTLM ", 25) == 0) {
@@ -75,7 +86,7 @@ void analyze_HTTP(PTSTREAM *pts) {
 			} while ( strcmp( buf, "\r\n" ) != 0 );
 		}
 
-		if (ntlm_challenge == 1) {
+		if (ntlm_challenge == 1 || digest_challenge == 1) {
 			proxy_protocol(pts);
 			return;
 		}

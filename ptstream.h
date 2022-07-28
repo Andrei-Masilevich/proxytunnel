@@ -22,23 +22,24 @@
 #ifdef USE_SSL
 #include <openssl/crypto.h>
 #include <openssl/err.h>
-#include <openssl/x509.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
+#include <openssl/x509.h>
+#else
+#include <stddef.h> // size_t
 #endif
 
 typedef struct ptstream {
-	int incoming_fd;
-	int outgoing_fd;
+  int incoming_fd;
+  int outgoing_fd;
 #ifdef USE_SSL
-	SSL *ssl;
-	SSL_CTX *ctx;
+  SSL *ssl;
+  SSL_CTX *ctx;
 #else
-	void *ssl;
-	void *ctx;
+  void *ssl;
+  void *ctx;
 #endif
 } PTSTREAM;
-
 
 PTSTREAM *stream_open(int incoming_fd, int outgoing_fd);
 int stream_close(PTSTREAM *pts);
