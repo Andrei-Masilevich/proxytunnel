@@ -51,6 +51,7 @@ Additional options for specific features:
  -P, --proxyauth=STRING     Proxy auth credentials user:pass combination
  -R, --remproxyauth=STRING  Remote proxy auth credentials user:pass combination
  -N, --ntlm                 Use NTLM based authentication
+ -D, --digest               Use HTTP Digest authentication
  -t, --domain=STRING        NTLM domain (default: autodetect)
  -H, --header=STRING        Add additional HTTP headers to send to proxy
  -o STRING                  send custom Host Header
