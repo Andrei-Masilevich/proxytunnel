@@ -126,9 +126,6 @@ void analyze_HTTP(PTSTREAM *pts) {
             return;
         }
         exit( 1 );
-    } else {
-        if( ! args_info.quiet_flag )
-            message( "Connected to %s\n", get_uri() );
     }
 }
 
@@ -190,6 +187,7 @@ void proxy_protocol(PTSTREAM *pts) {
     if ( args_info.header_given )
         strzcat( buf, "%s", args_info.header_arg );
 
+    // Finalize client request by making "\r\n\r\n"
     strzcat( buf, "\r\n" );
 
     /* Print the CONNECT instruction before sending to proxy */
@@ -218,7 +216,9 @@ void proxy_protocol(PTSTREAM *pts) {
 
         /* Clean buffer for next analysis */
         while ( strcmp( buf, "\r\n" ) != 0 )
+        {
             readline(pts);
+        }
 
         /* If --encrypt-remproxy is specified, connect to the remote proxy using SSL */
         if ( args_info.encryptremproxy_flag )
@@ -237,6 +237,7 @@ void proxy_protocol(PTSTREAM *pts) {
         if ( args_info.header_given )
             strzcat( buf, "%s", args_info.header_arg );
 
+        // Finalize client request by making "\r\n\r\n"
         strzcat( buf, "\r\n" );
 
         /* Print the CONNECT instruction before sending to proxy */
@@ -267,9 +268,10 @@ void proxy_protocol(PTSTREAM *pts) {
     if (ntlm_challenge == 1) {
         ntlm_challenge = 2;
     } else {
-        do {
+        while ( strcmp( buf, "\r\n" ) != 0 )
+        {
             readline(pts);
-        } while ( strcmp( buf, "\r\n" ) != 0 );
+        }
     }
 }
 
