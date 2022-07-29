@@ -14,6 +14,7 @@ void message( char *s, ... );
 
 static const size_t DIGEST_SZ_LIM = 1024;
 
+// Implemented by recommendations from:
 // https://datatracker.ietf.org/doc/html/rfc7616
 
 static int scan_for_tokens(DIGEST_AUTH_CTX *pctx, const char *pchunk, char* buff)
@@ -116,8 +117,8 @@ DIGEST_AUTH_CTX *create_digest_auth(const char* http_uri, unsigned char *server_
 
     char *pvar_buf = alloca(DIGEST_SZ_LIM);
 
+    // Construct authentication context
     DIGEST_AUTH_CTX *pctx = malloc(sizeof(DIGEST_AUTH_CTX));
-
     pctx->http_method = strdup("CONNECT");
     pctx->http_uri = strdup(http_uri);
     pctx->realm = NULL;
@@ -130,8 +131,8 @@ DIGEST_AUTH_CTX *create_digest_auth(const char* http_uri, unsigned char *server_
     pctx->identity = NULL;
     pctx->response = NULL;
 
+    // Extract protocol tokens
     const char*const VARS_DELIMS=" ,";
-
     char *pchunk = strtok(pserver_digest, VARS_DELIMS);
     while (pchunk != NULL)
     {
@@ -143,6 +144,8 @@ DIGEST_AUTH_CTX *create_digest_auth(const char* http_uri, unsigned char *server_
 
         pchunk = strtok (NULL, VARS_DELIMS);
     }
+
+    // Check extraction result
 
     if (!pctx->realm)
     {
@@ -276,6 +279,11 @@ char* build_digest_response(DIGEST_AUTH_CTX *pctx, const char* username, const c
     snprintf(presponse_buf, DIGEST_SZ_LIM,
              "username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", cnonce=\"%s\", nc=%s, qop=%s, response=\"%s\"",
              username, pctx->realm, pctx->nonce, pctx->http_uri, pctx->cnonce, nc, qop, pctx->response);
+
+    if (pctx->opaque)
+    {
+        strzcat(presponse_buf, ", opaque=\"%s\"", pctx->opaque);
+    }
 
     return strdup(presponse_buf);
 }
