@@ -84,16 +84,18 @@ void cpio(PTSTREAM *stream1, PTSTREAM *stream2) {
 	/* We are never interested in sockets being available for write */
 	FD_ZERO( &writefds );
 
-
 	/* experimental timeout */
 	struct timeval select_timeout;
 	select_timeout.tv_sec = 30; /* should be fine */
 	select_timeout.tv_usec = 0;
 
 	if( args_info.verbose_flag )
+    {
 		message( "\nTunnel established.\n" );
+    }
 
-        int stream_status = ACTIVE;
+    int stream_status = ACTIVE;
+
 	while( stream_status == ACTIVE ) {
 		/* Clear the interesting socket sets */
 		FD_ZERO( &readfds );
@@ -109,9 +111,9 @@ void cpio(PTSTREAM *stream1, PTSTREAM *stream2) {
 		FD_SET( stream_get_incoming_fd(stream2), &exceptfds );
 		FD_SET( stream_get_outgoing_fd(stream2), &exceptfds );
                 
-                /* reset the timeout, since select() does modify this struct! */
-                select_timeout.tv_sec = 30;
-                select_timeout.tv_usec = 0;
+        /* reset the timeout, since select() does modify this struct! */
+        select_timeout.tv_sec = 30;
+        select_timeout.tv_usec = 0;
 
 		/* Wait/timeout something happens on the registered sockets/files */
 		int number_of_fds_ready;
@@ -140,5 +142,6 @@ void cpio(PTSTREAM *stream1, PTSTREAM *stream2) {
 			}
 		} 
 	}
+
 	closeall();
 }
